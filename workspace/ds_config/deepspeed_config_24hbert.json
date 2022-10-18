@@ -1,0 +1,21 @@
+{
+ "train_batch_size": 3840,
+  "train_micro_batch_size_per_gpu": 128,
+  "gradient_acc_step": 10,
+  "output_file": "deepspeed_log.txt",
+
+ "optimizer": {
+    "type": "Adam",
+    "params": {
+      "lr": 1e-3,
+      "weight_decay": 0.01,
+	  "betas": [0.9,0.98]
+    }
+  },
+ "gradient_clipping": 1.0,
+
+  "fp16": {
+    "enabled": true,
+    "loss_scale": 0
+  }
+}

@@ -25,7 +25,7 @@ else:
 
 if args.model_type == "Bert":
     model_type = TwoTowerDsBert
-    bert_config = TwoTowerDsBert.get_model_config(name="large_2tower") ## Or
+    bert_config = TwoTowerDsBert.get_model_config(name="large_2tower")
 elif args.model_type == "Elmo":
     model_type = TwoTowerELMo
 elif args.model_type == "Gpt":

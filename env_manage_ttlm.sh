@@ -1,8 +1,8 @@
 conda env remove --name ttlm
-conda create --name ttlm python=3.7 -y
+conda create --name ttlm python=3.8 -y
 source activate ttlm
 
-conda install -y pytorch==1.8.0 torchvision==0.9.0 torchaudio==0.8.0 cudatoolkit=11.1 -c pytorch -c conda-forge
+conda install -y pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
 conda install -y -c conda-forge matplotlib
 conda install -y -c anaconda jupyter
 conda install -y nb_conda_kernels ipykernel

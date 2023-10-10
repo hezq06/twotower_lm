@@ -57,24 +57,24 @@ class TwoTowerDsBert(torch.nn.Module):
             for _ in range(self.num_hidden_layers)
         ])
 
-        self.pt_emb = torch.nn.Embedding(self.output_size, 2*self.hidden_size)
+        self.pt_emb = torch.nn.Embedding(self.output_size, self.tower_num*self.hidden_size)
         self.pt_emb.weight.data.uniform_(-0.02, 0.02)
-        self.emb1 = torch.nn.Linear(2 * self.hidden_size, self.hidden_size)
-        self.emb2 = torch.nn.Linear(2 * self.hidden_size, self.hidden_size)
+        self.emb1 = torch.nn.Linear(self.tower_num * self.hidden_size, self.hidden_size)
+        self.emb2 = torch.nn.Linear(self.tower_num * self.hidden_size, self.hidden_size)
 
         self.out_bias = torch.nn.Parameter(torch.zeros(self.output_size))  # For some unknown reason, this size will interfere with transformer kernel, the size should be dividable by 8
         self.input_mask = None
         self.preset_att_mask = None
 
-        self.position_embeddings = torch.nn.Embedding(self.max_seq_length, 2 * self.hidden_size)
+        self.position_embeddings = torch.nn.Embedding(self.max_seq_length, self.tower_num * self.hidden_size)
         self.position_embeddings.weight.data.uniform_(-0.02, 0.02)
-        self.layer_norm_emb = BertLayerNorm(2 * self.hidden_size)
+        self.layer_norm_emb = BertLayerNorm(self.tower_num * self.hidden_size)
         self.dropout = torch.nn.Dropout(self.dropout_rate)
         self.cls_dropout = torch.nn.Dropout(self.dropout_rate)
-        self.layer_norm_final = BertLayerNorm(2*self.hidden_size)
-        self.dense_act = torch.nn.Linear(2 * self.hidden_size, 2 * self.hidden_size)
+        self.layer_norm_final = BertLayerNorm(self.tower_num*self.hidden_size)
+        self.dense_act = torch.nn.Linear(self.tower_num * self.hidden_size, self.tower_num * self.hidden_size)
         self.gelu = torch.nn.GELU()
-        self.layer_norm_trans = BertLayerNorm(2 * self.hidden_size)
+        self.layer_norm_trans = BertLayerNorm(self.tower_num * self.hidden_size)
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
         if self.train_phase in ["phase2_t1","phase3_t2","phase2_t1t2","phase3_revgrad"]: # phase1_mlm, phase2_t1, phase3_t2, probe_distmat_t1, probe_distmat_t2
@@ -110,7 +110,11 @@ class TwoTowerDsBert(torch.nn.Module):
         self.cls_id = self.special_tokens["[CLS]"]
         self.sep_id = self.special_tokens["[SEP]"]
         # version control 1 is original with sin position, 2 is after benchmarking with bing_bert
-        self.train_phase = config.get("train_phase", "phase1_mlm") # phase2_t1, phase3_t2, probe_distmat_t1, probe_distmat_t2
+        self.train_phase = config.get("train_phase", "phase1_mlm") # phase2_t1, phase3_t2, probe_distmat_t1, probe_distmat_t2, baseline
+        if self.train_phase=="baseline":
+            self.tower_num = 1
+        else:
+            self.tower_num = 2
 
         self.batch_size = config.get("batch_size", 64)
         self.max_seq_length = config.get("max_seq_length", 512)
@@ -243,6 +247,31 @@ class TwoTowerDsBert(torch.nn.Module):
         ## DS convention, 0 is masked out for padding, shape
         if not self.finetune:
             inputx = self.input_masking(inputx)
+
+        if self.train_phase == "baseline":
+            # Single tower baseline
+            att_mask = self.cal_att_masking(inputx, self.finetune)
+            seq_length = inputx.size(1)
+            position_ids = torch.arange(seq_length, dtype=torch.long, device=inputx.device)
+            position_ids = position_ids.unsqueeze(0).expand_as(inputx)
+            self.input_emb = self.pt_emb(inputx)
+            enc_output = self.input_emb + self.position_embeddings(position_ids)
+            enc_output = self.layer_norm_emb(enc_output)
+            enc_output = self.dropout(enc_output)
+
+            enc_output = self.emb1(enc_output)
+
+            for trf_l in self.trf_layers1:
+                enc_output = trf_l(enc_output, attention_mask=att_mask)
+
+            self.enc_output = enc_output
+
+            enc_output = self.layer_norm_final(enc_output)
+            enc_output = self.gelu(self.dense_act(enc_output))
+            enc_output = self.layer_norm_trans(enc_output)
+            output = F.linear(enc_output, self.pt_emb.weight)
+            output = output + self.out_bias[:self.output_size]
+            return output
 
         if self.train_phase == "phase1_mlm":
 

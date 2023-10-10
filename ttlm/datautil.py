@@ -46,6 +46,11 @@ def load_data(file, engine="pickle", print_flag=True):
     else:
         raise Exception("Unknown Engine.")
 
+def save_text(string, file_name):
+
+    with open(file_name,"w") as f:
+        f.write(string)
+
 def save_model(model,file):
     torch.save(model, file)
 

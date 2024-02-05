@@ -135,6 +135,7 @@ class TwoTowerDsBert(torch.nn.Module):
         self.gelu_checkpoint = config.get("gelu_checkpoint", False)
         self.stochastic_mode = config.get("stochastic_mode", False)
         self.ds_training = config.get("ds_training", True) ## DeepspeedTransformer Kernel doesn't work with eval()
+        self.eval_mem_mode = config.get("eval_mem_mode", "perplexity_per_label")
 
         self.dsconfig = DeepSpeedTransformerConfig(
             batch_size=self.batch_size,
@@ -446,7 +447,7 @@ class TwoTowerDsBert(torch.nn.Module):
 
         return optimizer_grouped_parameters
 
-    def eval_mem(self, datax, labels): # append predicted perplexity of each word
+    def eval_mem_1(self, datax, labels): # append predicted perplexity of each word
 
         self.input_embl.append(self.input_emb[labels != 0])
         self.laboutl.append(labels[labels != 0])
@@ -454,43 +455,45 @@ class TwoTowerDsBert(torch.nn.Module):
         # self.encode1l.append(self.enc_output1[self.input_mask == 0])
         # self.encode2l.append(self.enc_output2[self.input_mask == 0])
 
-    def post_eval_mem(self):
+    def post_eval_mem_1(self):
         self.input_embl = torch.cat(self.input_embl)
         self.laboutl = torch.cat(self.laboutl)
         # self.encode1l = torch.cat(self.encode1l)
         # self.encode2l = torch.cat(self.encode2l)
 
-    def eval_mem_1(self, datax, labels): # append predicted perplexity of each word
+    def eval_mem(self, datax, labels): # append predicted perplexity of each word
 
-        lloutput = self.softmax(self.output)
-        plabel = labels[self.input_mask == 0]
-        pout = lloutput[self.input_mask == 0]
-        llout = torch.gather(pout,1,plabel.view(-1,1)).squeeze()
-        self.laboutl.append(plabel)
-        self.lloutl.append(llout)
-        # endt = time.time()
-        # print(endt-stt)
+        if self.eval_mem_mode == "perplexity_per_label":
+            lloutput = self.softmax(self.output)
+            plabel = labels[self.input_mask == 0]
+            pout = lloutput[self.input_mask == 0]
+            llout = torch.gather(pout,1,plabel.view(-1,1)).squeeze()
+            self.laboutl.append(plabel)
+            self.lloutl.append(llout)
+            # endt = time.time()
+            # print(endt-stt)
 
-    def post_eval_mem_1(self):
-        laboutl = torch.cat(self.laboutl)
-        lloutl = torch.cat(self.lloutl)
+    def post_eval_mem(self):
 
-        self.learndict = {}
-        laboutl = purge(laboutl)
-        lloutl = purge(lloutl)
-        for ii in range(len(laboutl)):
-            lb = laboutl[ii]
-            if lb in self.learndict.keys():
-                self.learndict[lb].append(lloutl[ii])
-            else:
-                self.learndict[lb] = [lloutl[ii]]
+        if self.eval_mem_mode == "perplexity_per_label":
+            laboutl = torch.cat(self.laboutl)
+            lloutl = torch.cat(self.lloutl)
+            self.learndict = {}
+            laboutl = purge(laboutl)
+            lloutl = purge(lloutl)
+            for ii in range(len(laboutl)):
+                lb = laboutl[ii]
+                if lb in self.learndict.keys():
+                    self.learndict[lb].append(lloutl[ii])
+                else:
+                    self.learndict[lb] = [lloutl[ii]]
 
-        for key, val in self.learndict.items():
-            self.learndict[key]=np.mean(val)
+            for key, val in self.learndict.items():
+                self.learndict[key]=np.mean(val)
 
-        self.perpvec = np.zeros(self.output_size)
-        for key, val in self.learndict.items():
-            self.perpvec[key] = val
+            self.perpvec = np.zeros(self.output_size)
+            for key, val in self.learndict.items():
+                self.perpvec[key] = val
 
 class TwoTowerELMo(torch.nn.Module):
     """

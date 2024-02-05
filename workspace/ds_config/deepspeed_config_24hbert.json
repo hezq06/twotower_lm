@@ -1,5 +1,5 @@
 {
- "train_batch_size": 3840,
+ "train_batch_size": 5120,
   "train_micro_batch_size_per_gpu": 128,
   "gradient_acc_step": 10,
   "output_file": "deepspeed_log.txt",

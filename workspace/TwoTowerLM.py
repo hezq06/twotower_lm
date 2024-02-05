@@ -23,13 +23,24 @@ elif args.train_phase in ["phase2_t1", "phase3_t2"]:
 else:
     raise Exception("Unknown train_phase")
 
-if args.model_type == "Bert":
+if args.model_type == "ttBert_large":
     model_type = TwoTowerDsBert
     bert_config = TwoTowerDsBert.get_model_config(name="large_2tower")
-elif args.model_type == "Elmo":
+elif args.model_type == "ttBert_base":
+    model_type = TwoTowerDsBert
+    bert_config = TwoTowerDsBert.get_model_config(name="base_2tower")
+elif args.model_type == "ttElmo_large":
     model_type = TwoTowerELMo
-elif args.model_type == "Gpt":
+    bert_config = TwoTowerELMo.get_model_config(name="large_2tower")
+elif args.model_type == "ttElmo_base":
+    model_type = TwoTowerELMo
+    bert_config = TwoTowerELMo.get_model_config(name="base_2tower")
+elif args.model_type == "ttGpt_large":
     model_type = TwoTowerGPT
+    bert_config = TwoTowerGPT.get_model_config(name="large_2tower")
+elif args.model_type == "ttGpt_base":
+    model_type = TwoTowerGPT
+    bert_config = TwoTowerGPT.get_model_config(name="base_2tower")
 else:
     raise Exception("Unknown model_type")
 
@@ -57,8 +68,7 @@ config={
     "check_point_path":args.check_point_path
 }
 
-if args.model_type == "Bert":
-    config.update(bert_config)
+config.update(bert_config)
 
 ptM = nca_prepare_training(config)
 

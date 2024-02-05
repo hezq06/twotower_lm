@@ -29,7 +29,7 @@ Deepspeed is using JIT compiling which requires proper version of compilers
 
 For GPT case, you need to hack into
 /path/to/home/anaconda3/envs/ttlm/lib/python3.7/site-packages/transformers/models/gpt2/modeling_gpt2.py
-line 920 (GPT2LMHeadModel), add self.hidden_states = hidden_states
+line 1091 (GPT2LMHeadModel), add self.hidden_states = hidden_states
 
 The developer name in ther software is a nickname placeholder due to ARR anonymous policy.
  

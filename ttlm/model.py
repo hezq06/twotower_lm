@@ -189,7 +189,7 @@ class TwoTowerDsBert(torch.nn.Module):
             config["num_hidden_layers"] = 12
             config["heads"] = 12
             config["hidden_size"] = 384
-            config["intermediate_size"] = 1024
+            config["intermediate_size"] = 1536
         else:
             raise Exception("Unknown model config.")
 
@@ -563,6 +563,20 @@ class TwoTowerELMo(torch.nn.Module):
         self.num_hidden_layers = config.get("num_hidden_layers", 2)
         self.dropout_rate = config.get("dropout_rate", 0.1)
 
+    @staticmethod
+    def get_model_config(name="base_2tower"):
+
+        config = {}
+
+        if name == "large_2tower":
+            config["hidden_size"] = 4096
+        elif name == "base_2tower":
+            config["hidden_size"] = 2048
+        else:
+            raise Exception("Unknown model config.")
+
+        return config
+
     def flip_seq(self, tensor):
         """
         not inplace flip of window dimension
@@ -757,6 +771,8 @@ class TwoTowerGPT(torch.nn.Module):
         self.train_phase = config.get("train_phase", "phase1_mlm") # phase2_t1, phase3_t2
         self.window_size = config.get("window_size", 128)
         self.hidden_size = config.get("hidden_size", 384)
+        self.num_attention_heads = config.get("num_attention_heads", 12)
+        self.num_hidden_layers = config.get("num_hidden_layers", 12)
         self.pretrained_gpt = config.get("pretrained_gpt", False)
         self.output_size = config.get("output_size", 30528)  # fuse, seperate
         self.mask_id = self.special_tokens["[MASK]"]
@@ -771,7 +787,27 @@ class TwoTowerGPT(torch.nn.Module):
         config.vocab_size = self.output_size
         config.n_positions = self.window_size
         config.n_embd = self.hidden_size
+        config.n_layer = self.num_hidden_layers
+        config.num_attention_heads = self.num_attention_heads
         config.return_dict = False
+        return config
+
+    @staticmethod
+    def get_model_config(name="base_2tower"):
+
+        config = {}
+
+        if name == "large_2tower":
+            config["hidden_size"] = 512
+            config["num_attention_heads"] = 16
+            config["num_hidden_layers"] = 24
+        elif name == "base_2tower":
+            config["hidden_size"] = 384
+            config["num_attention_heads"] = 12
+            config["num_hidden_layers"] = 12
+        else:
+            raise Exception("Unknown model config.")
+
         return config
 
     def attention_mask(self, inputx):
